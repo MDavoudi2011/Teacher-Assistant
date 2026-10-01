@@ -140,18 +140,25 @@ export async function POST(req: NextRequest) {
         try {
           const fileId = msg.document.file_id;
           const fileData = await getFile(fileId);
+          if (!fileData || !fileData.file_path) {
+             throw new Error("مسیر فایل از سرور بله دریافت نشد (شاید فایل خیلی حجیم است).");
+          }
+          
           const fileLink = `${BALE_FILE_API}/${fileData.file_path}`;
-          
           const response = await fetch(fileLink);
-          const blob = await response.blob();
+          if (!response.ok) throw new Error("دانلود فایل از سرور بله با شکست مواجه شد.");
           
-          const fileName = `${Date.now()}_${msg.document.file_name}`;
+          const arrayBuffer = await response.arrayBuffer();
+          
+          const fileName = `${Date.now()}_${msg.document.file_name || 'document'}`;
           const { data: storageData, error: storageError } = await supabase
             .storage
             .from('homework')
-            .upload(`files/${fileName}`, blob);
+            .upload(`files/${fileName}`, arrayBuffer, {
+              contentType: msg.document.mime_type || 'application/octet-stream'
+            });
             
-          if (storageError) throw storageError;
+          if (storageError) throw new Error(`خطای فضای ذخیره‌سازی: ${storageError.message}`);
 
           const { data: publicUrlData } = supabase.storage.from('homework').getPublicUrl(`files/${fileName}`);
           const publicUrl = publicUrlData.publicUrl;
@@ -171,14 +178,14 @@ export async function POST(req: NextRequest) {
               }
             ]);
 
-          if (dbError) throw dbError;
+          if (dbError) throw new Error(`خطای دیتابیس: ${dbError.message}`);
 
           await sendMessage(chatId, '✅ تکلیف شما با موفقیت ثبت شد. خسته نباشید!');
           await deleteState(chatId);
 
-        } catch (error) {
+        } catch (error: any) {
           console.error(error);
-          await sendMessage(chatId, '❌ متأسفانه در ذخیره فایل خطایی رخ داد.');
+          await sendMessage(chatId, `❌ متأسفانه خطایی رخ داد:\n\n${error.message || 'خطای نامشخص در سرور'}`);
         }
         return NextResponse.json({ ok: true });
       }
