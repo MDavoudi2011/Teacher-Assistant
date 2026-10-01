@@ -1,33 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = 'force-dynamic'; // Prevent any caching on Vercel
+
 // Initialize Supabase Client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false }
+});
 
 const token = process.env.BALE_BOT_TOKEN || '';
 const BALE_API = `https://tapi.bale.ai/bot${token}`;
 const BALE_FILE_API = `https://tapi.bale.ai/file/bot${token}`;
 
-async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
-  await fetch(`${BALE_API}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      ...(replyMarkup ? { reply_markup: replyMarkup } : {})
-    })
-  });
+async function sendMessage(chatId: string | number, text: string, replyMarkup?: any) {
+  try {
+    await fetch(`${BALE_API}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+      })
+    });
+  } catch (e) {
+    console.error("SendMessage Error:", e);
+  }
 }
 
 async function answerCallbackQuery(callbackQueryId: string) {
-  await fetch(`${BALE_API}/answerCallbackQuery`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ callback_query_id: callbackQueryId })
-  });
+  try {
+    await fetch(`${BALE_API}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: callbackQueryId })
+    });
+  } catch(e) {}
 }
 
 async function getFile(fileId: string) {
@@ -37,23 +47,35 @@ async function getFile(fileId: string) {
   throw new Error("Cannot get file from Bale");
 }
 
-async function getState(chatId: number) {
+async function getState(chatId: string | number) {
   const { data, error } = await supabase
     .from('bot_state')
     .select('*')
     .eq('chat_id', chatId)
-    .single();
-  if (error) return null;
+    .maybeSingle();
+    
+  if (error) {
+    console.error("GetState Error:", error);
+    return null;
+  }
   return data;
 }
 
-async function saveState(chatId: number, stateData: any) {
-  await supabase
+async function saveState(chatId: string | number, stateData: any) {
+  const { error } = await supabase
     .from('bot_state')
-    .upsert({ chat_id: chatId, ...stateData, updated_at: new Date().toISOString() });
+    .upsert({ 
+      chat_id: chatId, 
+      ...stateData, 
+      updated_at: new Date().toISOString() 
+    });
+    
+  if (error) {
+    console.error("SaveState Error:", error);
+  }
 }
 
-async function deleteState(chatId: number) {
+async function deleteState(chatId: string | number) {
   await supabase
     .from('bot_state')
     .delete()
