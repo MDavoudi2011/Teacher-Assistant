@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-const TelegramBot = require("node-telegram-bot-api");
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase Client
@@ -7,12 +6,36 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Initialize Bot without polling
 const token = process.env.BALE_BOT_TOKEN || '';
-const bot = new TelegramBot(token, { 
-  polling: false,
-  baseApiUrl: 'https://tapi.bale.ai' 
-});
+const BALE_API = `https://tapi.bale.ai/bot${token}`;
+const BALE_FILE_API = `https://tapi.bale.ai/file/bot${token}`;
+
+async function sendMessage(chatId: number, text: string, replyMarkup?: any) {
+  await fetch(`${BALE_API}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: text,
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {})
+    })
+  });
+}
+
+async function answerCallbackQuery(callbackQueryId: string) {
+  await fetch(`${BALE_API}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId })
+  });
+}
+
+async function getFile(fileId: string) {
+  const res = await fetch(`${BALE_API}/getFile?file_id=${fileId}`);
+  const data = await res.json();
+  if (data.ok) return data.result;
+  throw new Error("Cannot get file from Bale");
+}
 
 async function getState(chatId: number) {
   const { data, error } = await supabase
@@ -47,50 +70,49 @@ export async function POST(req: NextRequest) {
 
       if (msg.text === '/start') {
         await saveState(chatId, { step: 'NAME', name: null, class_name: null });
-        await bot.sendMessage(chatId, 'سلام! به سامانه دریافت تکالیف خوش آمدید.\nلطفاً نام و نام خانوادگی خود را وارد کنید:');
+        await sendMessage(chatId, 'سلام! به سامانه دریافت تکالیف خوش آمدید.\nلطفاً نام و نام خانوادگی خود را وارد کنید:');
         return NextResponse.json({ ok: true });
       }
 
       const state = await getState(chatId);
       if (!state) {
-        await bot.sendMessage(chatId, 'لطفاً برای شروع روی /start کلیک کنید یا آن را تایپ کنید.');
+        await sendMessage(chatId, 'لطفاً برای شروع روی /start کلیک کنید یا آن را تایپ کنید.');
         return NextResponse.json({ ok: true });
       }
 
       if (state.step === 'NAME') {
         if (!msg.text) {
-          await bot.sendMessage(chatId, 'لطفاً نام خود را به صورت متنی وارد کنید.');
+          await sendMessage(chatId, 'لطفاً نام خود را به صورت متنی وارد کنید.');
           return NextResponse.json({ ok: true });
         }
         
         await saveState(chatId, { step: 'CLASS', name: msg.text, class_name: null });
         
-        const opts = {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '۹/۱', callback_data: 'class_9/1' },
-                { text: '۹/۲', callback_data: 'class_9/2' }
-              ],
-              [
-                { text: '۹/۳', callback_data: 'class_9/3' },
-                { text: '۹/۴', callback_data: 'class_9/4' }
-              ]
+        const replyMarkup = {
+          inline_keyboard: [
+            [
+              { text: '۹/۱', callback_data: 'class_9/1' },
+              { text: '۹/۲', callback_data: 'class_9/2' }
+            ],
+            [
+              { text: '۹/۳', callback_data: 'class_9/3' },
+              { text: '۹/۴', callback_data: 'class_9/4' }
             ]
-          }
+          ]
         };
-        await bot.sendMessage(chatId, `نام شما "${msg.text}" ثبت شد.\nلطفاً کلاس خود را از منوی زیر انتخاب کنید:`, opts);
+        await sendMessage(chatId, `نام شما "${msg.text}" ثبت شد.\nلطفاً کلاس خود را از منوی زیر انتخاب کنید:`, replyMarkup);
       } else if (state.step === 'FILE') {
         if (!msg.document) {
-          await bot.sendMessage(chatId, 'لطفاً یک فایل ارسال کنید (به صورت فایل/Document).');
+          await sendMessage(chatId, 'لطفاً یک فایل ارسال کنید (به صورت فایل/Document).');
           return NextResponse.json({ ok: true });
         }
 
-        await bot.sendMessage(chatId, 'در حال دریافت و ذخیره فایل...');
+        await sendMessage(chatId, 'در حال دریافت و ذخیره فایل...');
         
         try {
           const fileId = msg.document.file_id;
-          const fileLink = await bot.getFileLink(fileId);
+          const fileData = await getFile(fileId);
+          const fileLink = `${BALE_FILE_API}/${fileData.file_path}`;
           
           const response = await fetch(fileLink);
           const blob = await response.blob();
@@ -123,12 +145,12 @@ export async function POST(req: NextRequest) {
 
           if (dbError) throw dbError;
 
-          await bot.sendMessage(chatId, 'تکلیف شما با موفقیت ثبت شد. خسته نباشید!');
+          await sendMessage(chatId, 'تکلیف شما با موفقیت ثبت شد. خسته نباشید!');
           await deleteState(chatId);
 
         } catch (error) {
           console.error(error);
-          await bot.sendMessage(chatId, 'متأسفانه در ثبت فایل خطایی رخ داد. لطفاً دوباره تلاش کنید.');
+          await sendMessage(chatId, 'متأسفانه در ثبت فایل خطایی رخ داد. لطفاً دوباره تلاش کنید.');
         }
       }
     } else if (update.callback_query) {
@@ -146,10 +168,9 @@ export async function POST(req: NextRequest) {
         const className = data.replace('class_', '');
         await saveState(chatId, { ...state, step: 'FILE', class_name: className });
         
-        await bot.sendMessage(chatId, `کلاس ${className} انتخاب شد.\nلطفاً فایل تحقیق خود را ارسال کنید.`);
-        // answerCallbackQuery requires query id
+        await sendMessage(chatId, `کلاس ${className} انتخاب شد.\nلطفاً فایل تحقیق خود را ارسال کنید.`);
         try {
-          await bot.answerCallbackQuery(callbackQuery.id);
+          await answerCallbackQuery(callbackQuery.id);
         } catch(e) {}
       }
     }
