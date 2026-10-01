@@ -7,5 +7,13 @@ CREATE TABLE submissions (
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+CREATE TABLE bot_state (
+  chat_id bigint PRIMARY KEY,
+  step text NOT NULL,
+  name text,
+  class_name text,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Note: You should also create a storage bucket named "homework" in Supabase
 -- and make it public so files can be easily downloaded, or use signed URLs.
