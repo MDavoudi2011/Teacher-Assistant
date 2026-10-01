@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Eye, LogOut, FileText, LayoutDashboard } from "lucide-react";
+import { Eye, Download, LogOut, FileText, LayoutDashboard } from "lucide-react";
 import { loginAction, fetchSubmissionsAction } from "./actions";
 
 import { Button } from "@/components/ui/button";
@@ -146,7 +146,7 @@ export default function Home() {
       <Tabs defaultValue="9/1" className="w-full" onValueChange={setActiveClass} dir="rtl">
         <TabsList className="grid grid-cols-4 w-full h-auto mb-8 gap-1 p-1 rounded-full bg-white shadow-sm border overflow-hidden">
           {classes.map(cls => (
-            <TabsTrigger key={cls} value={cls} className="text-xs sm:text-base h-10 rounded-full transition-all duration-300">
+            <TabsTrigger key={cls} value={cls} className="text-sm sm:text-base md:text-lg h-11 rounded-full transition-all duration-300 font-medium">
               کلاس {toPersianDigits(cls)}
             </TabsTrigger>
           ))}
@@ -159,9 +159,9 @@ export default function Home() {
                 <Table>
                   <TableHeader className="bg-secondary/30">
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-right font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap">نام و نام خانوادگی</TableHead>
-                      <TableHead className="text-right font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap">تاریخ ارسال</TableHead>
-                      <TableHead className="text-center font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap">مشاهده</TableHead>
+                      <TableHead className="text-right font-bold text-foreground py-3 px-3 sm:px-6 w-full min-w-[150px]">نام و نام خانوادگی</TableHead>
+                      <TableHead className="text-right font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap w-[120px]">تاریخ ارسال</TableHead>
+                      <TableHead className="text-center font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap w-[100px]">عملیات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -175,7 +175,7 @@ export default function Home() {
                     ) : loading ? (
                       <TableRow>
                         <TableCell colSpan={3} className="h-32 text-center text-sm text-muted-foreground">
-                          در حال بارگذاری
+                          در حال بارگذاری...
                         </TableCell>
                       </TableRow>
                     ) : submissions.length === 0 ? (
@@ -198,11 +198,14 @@ export default function Home() {
                           </TableCell>
                           <TableCell className="text-center py-3 px-3 sm:px-6">
                             <div className="flex items-center justify-center">
-                              <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors h-9 w-9" asChild>
-                                <a href={sub.file_url} target="_blank" rel="noopener noreferrer" title="مشاهده">
-                                  <Eye className="h-5 w-5" />
+                              <div className="flex bg-muted/50 rounded-full border shadow-sm overflow-hidden">
+                                <a href={sub.file_url} target="_blank" rel="noopener noreferrer" title="مشاهده" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-blue-100 hover:text-blue-600 transition-colors border-l">
+                                  <Eye className="h-4 w-4" />
                                 </a>
-                              </Button>
+                                <a href={sub.file_url} download title="دانلود" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-emerald-100 hover:text-emerald-600 transition-colors">
+                                  <Download className="h-4 w-4" />
+                                </a>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>

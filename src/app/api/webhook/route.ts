@@ -161,11 +161,21 @@ export async function POST(req: NextRequest) {
           
           const arrayBuffer = await response.arrayBuffer();
           
-          const finalFileName = `${Date.now()}_${fileName}`;
+          // Sanitize file name to avoid Supabase path errors with Persian characters
+          const ext = fileName.includes('.') ? fileName.split('.').pop() : 'pdf';
+          const finalFileName = `${Date.now()}_file.${ext}`;
+          
+          let contentType = 'application/octet-stream';
+          if (ext === 'pdf') contentType = 'application/pdf';
+          else if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
+          else if (ext === 'png') contentType = 'image/png';
+
           const { data: storageData, error: storageError } = await supabase
             .storage
             .from('homework')
-            .upload(`files/${finalFileName}`, arrayBuffer);
+            .upload(`files/${finalFileName}`, arrayBuffer, {
+               contentType: contentType
+            });
             
           if (storageError) throw new Error(`خطای فضای ذخیره‌سازی: ${storageError.message}`);
 
