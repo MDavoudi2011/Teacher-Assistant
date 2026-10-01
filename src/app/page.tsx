@@ -99,6 +99,19 @@ export default function Home() {
     return `${datePart} - ساعت ${timePart}`;
   };
 
+  const getDownloadFileName = (sub: Submission) => {
+    const ext = sub.file_url.split('.').pop() || 'pdf';
+    const name = `${sub.first_name} ${sub.last_name !== '-' ? sub.last_name : ''}`.trim();
+    
+    const d = new Date(sub.created_at);
+    const dateStr = d.toLocaleDateString('fa-IR', {
+      day: 'numeric',
+      month: 'long',
+    });
+    
+    return `${name} - ${dateStr}.${ext}`;
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4 bg-muted/30" dir="rtl">
@@ -202,7 +215,7 @@ export default function Home() {
                                 <a href={sub.file_url} target="_blank" rel="noopener noreferrer" title="مشاهده" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-blue-100 hover:text-blue-600 transition-colors border-l">
                                   <Eye className="h-4 w-4" />
                                 </a>
-                                <a href={`${sub.file_url}?download=${encodeURIComponent(sub.first_name + ' ' + (sub.last_name !== '-' ? sub.last_name : '') + '.' + (sub.file_url.split('.').pop() || 'pdf'))}`} title="دانلود" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-emerald-100 hover:text-emerald-600 transition-colors">
+                                <a href={`${sub.file_url}?download=${encodeURIComponent(getDownloadFileName(sub))}`} title="دانلود" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-emerald-100 hover:text-emerald-600 transition-colors">
                                   <Download className="h-4 w-4" />
                                 </a>
                               </div>
