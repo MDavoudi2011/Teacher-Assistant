@@ -19,7 +19,10 @@ export async function fetchSubmissionsAction(className: string) {
   }
   
   const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false }
+    auth: { persistSession: false },
+    global: {
+      fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' })
+    }
   });
 
   const { data, error } = await supabase
