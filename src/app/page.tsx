@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { Eye, Download, LogOut, FileText, LayoutDashboard } from "lucide-react";
-import { loginAction } from "./actions";
+import { loginAction, fetchSubmissionsAction } from "./actions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +35,7 @@ export default function Home() {
   const [activeClass, setActiveClass] = useState("9/1");
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState("");
 
   const classes = ["9/1", "9/2", "9/3", "9/4"];
 
@@ -54,16 +54,14 @@ export default function Home() {
 
   const fetchSubmissions = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('submissions')
-      .select('*')
-      .eq('class_name', activeClass)
-      .order('created_at', { ascending: false });
+    setFetchError("");
+    const res = await fetchSubmissionsAction(activeClass);
 
-    if (error) {
-      console.error(error);
+    if (res.error) {
+      console.error(res.error);
+      setFetchError(res.error);
     } else {
-      setSubmissions(data || []);
+      setSubmissions(res.data || []);
     }
     setLoading(false);
   };
@@ -167,7 +165,14 @@ export default function Home() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loading ? (
+                    {fetchError ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="h-32 text-center text-sm text-destructive">
+                          خطا در ارتباط با دیتابیس (بررسی کنید که متغیرهای Vercel را دقیق وارد کرده باشید):<br/>
+                          {fetchError}
+                        </TableCell>
+                      </TableRow>
+                    ) : loading ? (
                       <TableRow>
                         <TableCell colSpan={3} className="h-32 text-center text-sm text-muted-foreground">
                           در حال بارگذاری
