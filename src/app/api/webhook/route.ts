@@ -47,40 +47,7 @@ async function getFile(fileId: string) {
   throw new Error("Cannot get file from Bale");
 }
 
-async function getState(chatId: string | number) {
-  const { data, error } = await supabase
-    .from('bot_state')
-    .select('*')
-    .eq('chat_id', chatId)
-    .maybeSingle();
-    
-  if (error) {
-    console.error("GetState Error:", error);
-    return null;
-  }
-  return data;
-}
-
-async function saveState(chatId: string | number, stateData: any) {
-  const { error } = await supabase
-    .from('bot_state')
-    .upsert({ 
-      chat_id: chatId, 
-      ...stateData, 
-      updated_at: new Date().toISOString() 
-    });
-    
-  if (error) {
-    console.error("SaveState Error:", error);
-  }
-}
-
-async function deleteState(chatId: string | number) {
-  await supabase
-    .from('bot_state')
-    .delete()
-    .eq('chat_id', chatId);
-}
+// Stateless bot! State functions removed.
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,47 +57,53 @@ export async function POST(req: NextRequest) {
       const msg = update.message;
       const chatId = msg.chat.id;
 
+      // 1. /start command
       if (msg.text === '/start') {
-        await saveState(chatId, { step: 'NAME', name: null, class_name: null });
-        await sendMessage(chatId, 'سلام! به سامانه دریافت تکالیف خوش آمدید.\nلطفاً نام و نام خانوادگی خود را وارد کنید:');
+        await sendMessage(chatId, 'سلام! به سامانه دریافت تکالیف خوش آمدید.\n\n👤 لطفاً **نام و نام خانوادگی** خود را وارد کنید:\n\n*(دقت کنید که متن خود را دقیقاً در پاسخ/Reply به همین پیام بفرستید)*', {
+          force_reply: true,
+          selective: true
+        });
         return NextResponse.json({ ok: true });
       }
 
-      const state = await getState(chatId);
-      if (!state) {
-        await sendMessage(chatId, 'لطفاً برای شروع روی /start کلیک کنید یا آن را تایپ کنید.');
-        return NextResponse.json({ ok: true });
-      }
+      // 2. User sends Name (replying to start)
+      if (msg.text && msg.reply_to_message && msg.reply_to_message.text && msg.reply_to_message.text.includes('نام و نام خانوادگی')) {
+        const name = msg.text.trim();
+        let safeName = name;
+        if (safeName.length > 25) safeName = safeName.substring(0, 25);
 
-      if (state.step === 'NAME') {
-        if (!msg.text) {
-          await sendMessage(chatId, 'لطفاً نام خود را به صورت متنی وارد کنید.');
-          return NextResponse.json({ ok: true });
-        }
-        
-        await saveState(chatId, { step: 'CLASS', name: msg.text, class_name: null });
-        
         const replyMarkup = {
           inline_keyboard: [
             [
-              { text: '۹/۱', callback_data: 'class_9/1' },
-              { text: '۹/۲', callback_data: 'class_9/2' }
+              { text: '۹/۱', callback_data: `c|9/1|${safeName}` },
+              { text: '۹/۲', callback_data: `c|9/2|${safeName}` }
             ],
             [
-              { text: '۹/۳', callback_data: 'class_9/3' },
-              { text: '۹/۴', callback_data: 'class_9/4' }
+              { text: '۹/۳', callback_data: `c|9/3|${safeName}` },
+              { text: '۹/۴', callback_data: `c|9/4|${safeName}` }
             ]
           ]
         };
-        await sendMessage(chatId, `نام شما "${msg.text}" ثبت شد.\nلطفاً کلاس خود را از منوی زیر انتخاب کنید:`, replyMarkup);
-      } else if (state.step === 'FILE') {
-        if (!msg.document) {
-          await sendMessage(chatId, 'لطفاً یک فایل ارسال کنید (به صورت فایل/Document).');
-          return NextResponse.json({ ok: true });
+        await sendMessage(chatId, `نام شما "${name}" دریافت شد.\n\n🏫 لطفاً کلاس خود را از دکمه‌های زیر انتخاب کنید:`, replyMarkup);
+        return NextResponse.json({ ok: true });
+      }
+
+      // 3. User sends File (replying to confirm)
+      if (msg.document) {
+        if (!msg.reply_to_message || !msg.reply_to_message.text || !msg.reply_to_message.text.includes('ثبت موقت')) {
+            await sendMessage(chatId, '❌ خطا: لطفاً فایل تحقیق را دقیقاً روی پیام "درخواست فایل" به صورت **پاسخ (Reply)** ارسال کنید. (یا برای شروع مجدد /start را بزنید)');
+            return NextResponse.json({ ok: true });
         }
 
-        await sendMessage(chatId, 'در حال دریافت و ذخیره فایل...');
+        const text = msg.reply_to_message.text;
+        const nameMatch = text.match(/نام: (.*)/);
+        const classMatch = text.match(/کلاس: (.*)/);
         
+        const extractedName = nameMatch ? nameMatch[1].trim() : 'ناشناس';
+        const extractedClass = classMatch ? classMatch[1].trim() : 'ناشناس';
+
+        await sendMessage(chatId, '⏳ در حال آپلود و ذخیره فایل در سیستم... لطفاً چند لحظه صبر کنید.');
+
         try {
           const fileId = msg.document.file_id;
           const fileData = await getFile(fileId);
@@ -150,7 +123,7 @@ export async function POST(req: NextRequest) {
           const { data: publicUrlData } = supabase.storage.from('homework').getPublicUrl(`files/${fileName}`);
           const publicUrl = publicUrlData.publicUrl;
 
-          const nameParts = (state.name || '').trim().split(' ');
+          const nameParts = extractedName.split(' ');
           const firstName = nameParts[0];
           const lastName = nameParts.slice(1).join(' ') || '-';
 
@@ -160,37 +133,48 @@ export async function POST(req: NextRequest) {
               {
                 first_name: firstName,
                 last_name: lastName,
-                class_name: state.class_name,
+                class_name: extractedClass,
                 file_url: publicUrl
               }
             ]);
 
-          if (dbError) throw dbError;
+          if (dbError) {
+             console.error("DB Insert Error:", dbError);
+             throw dbError;
+          }
 
-          await sendMessage(chatId, 'تکلیف شما با موفقیت ثبت شد. خسته نباشید!');
-          await deleteState(chatId);
+          await sendMessage(chatId, '✅ تکلیف شما با موفقیت ثبت شد. خسته نباشید!');
 
         } catch (error) {
           console.error(error);
-          await sendMessage(chatId, 'متأسفانه در ثبت فایل خطایی رخ داد. لطفاً دوباره تلاش کنید.');
+          await sendMessage(chatId, '❌ متأسفانه در ثبت نهایی فایل خطایی رخ داد. این خطا معمولاً به خاطر تنظیم نبودن پایگاه‌داده (متغیرهای Vercel) است.');
         }
+        return NextResponse.json({ ok: true });
       }
+
+      // If user sends normal text not matching flow
+      if (msg.text) {
+        await sendMessage(chatId, 'لطفاً برای شروع فرآیند ارسال تکلیف روی /start کلیک کنید.');
+      }
+
     } else if (update.callback_query) {
       const callbackQuery = update.callback_query;
       const msg = callbackQuery.message;
       const data = callbackQuery.data;
       const chatId = msg.chat.id;
       
-      const state = await getState(chatId);
-      if (!state || state.step !== 'CLASS') {
-        return NextResponse.json({ ok: true });
-      }
-
-      if (data.startsWith('class_')) {
-        const className = data.replace('class_', '');
-        await saveState(chatId, { ...state, step: 'FILE', class_name: className });
+      if (data.startsWith('c|')) {
+        const parts = data.split('|');
+        const className = parts[1];
+        const name = parts[2];
         
-        await sendMessage(chatId, `کلاس ${className} انتخاب شد.\nلطفاً فایل تحقیق خود را ارسال کنید.`);
+        const confirmText = `ثبت موقت:\nنام: ${name}\nکلاس: ${className}\n\n📥 لطفاً فایل تحقیق خود را دقیقاً در **پاسخ (Reply)** به همین پیام ارسال کنید.`;
+        
+        await sendMessage(chatId, confirmText, {
+          force_reply: true,
+          selective: true
+        });
+        
         try {
           await answerCallbackQuery(callbackQuery.id);
         } catch(e) {}
