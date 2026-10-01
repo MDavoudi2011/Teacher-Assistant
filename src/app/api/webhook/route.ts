@@ -95,19 +95,19 @@ export async function POST(req: NextRequest) {
 
       if (msg.text === '/start') {
         await saveState(chatId, { step: 'NAME', name: null, class_name: null });
-        await sendMessage(chatId, 'سلام! به سامانه دریافت تکالیف خوش آمدید.\n\n👤 لطفاً **نام و نام خانوادگی** خود را (در قالب یک پیام متنی ساده) بفرستید:');
+        await sendMessage(chatId, 'سلام! به سامانه دریافت تکالیف خوش آمدید.\n\n👤 لطفاً نام و نام خانوادگی خود را وارد کنید:');
         return NextResponse.json({ ok: true });
       }
 
       const state = await getState(chatId);
       if (!state) {
-        await sendMessage(chatId, 'لطفاً برای شروع فرآیند، روی /start کلیک کنید.');
+        await sendMessage(chatId, 'لطفاً برای شروع روی /start کلیک کنید.');
         return NextResponse.json({ ok: true });
       }
 
       if (state.step === 'NAME') {
         if (!msg.text) {
-          await sendMessage(chatId, 'لطفاً نام خود را به صورت **متن** وارد کنید.');
+          await sendMessage(chatId, 'لطفاً نام خود را به صورت متن وارد کنید.');
           return NextResponse.json({ ok: true });
         }
         
@@ -125,20 +125,31 @@ export async function POST(req: NextRequest) {
             ]
           ]
         };
-        await sendMessage(chatId, `نام شما "${msg.text.trim()}" ثبت شد.\n\n🏫 لطفاً کلاس خود را از دکمه‌های زیر انتخاب کنید:`, replyMarkup);
+        await sendMessage(chatId, `نام شما "${msg.text.trim()}" ثبت شد.\n\n🏫 لطفاً کلاس خود را انتخاب کنید:`, replyMarkup);
         return NextResponse.json({ ok: true });
       } 
       
       else if (state.step === 'FILE') {
-        if (!msg.document) {
-          await sendMessage(chatId, 'لطفاً یک فایل (از نوع Document/فایل) ارسال کنید.');
+        if (!msg.document && !msg.photo) {
+          await sendMessage(chatId, 'لطفاً یک فایل یا تصویر ارسال کنید.');
           return NextResponse.json({ ok: true });
         }
 
-        await sendMessage(chatId, '⏳ در حال دریافت و آپلود فایل... لطفاً کمی صبر کنید.');
+        await sendMessage(chatId, '⏳ در حال دریافت و آپلود فایل...\nلطفاً کمی صبر کنید.');
         
         try {
-          const fileId = msg.document.file_id;
+          let fileId = '';
+          let fileName = '';
+          
+          if (msg.document) {
+             fileId = msg.document.file_id;
+             fileName = msg.document.file_name || 'document.pdf';
+          } else if (msg.photo && msg.photo.length > 0) {
+             const largestPhoto = msg.photo[msg.photo.length - 1];
+             fileId = largestPhoto.file_id;
+             fileName = 'image.jpg';
+          }
+
           const fileData = await getFile(fileId);
           if (!fileData || !fileData.file_path) {
              throw new Error("مسیر فایل از سرور بله دریافت نشد (شاید فایل خیلی حجیم است).");
@@ -150,17 +161,15 @@ export async function POST(req: NextRequest) {
           
           const arrayBuffer = await response.arrayBuffer();
           
-          const fileName = `${Date.now()}_${msg.document.file_name || 'document'}`;
+          const finalFileName = `${Date.now()}_${fileName}`;
           const { data: storageData, error: storageError } = await supabase
             .storage
             .from('homework')
-            .upload(`files/${fileName}`, arrayBuffer, {
-              contentType: msg.document.mime_type || 'application/octet-stream'
-            });
+            .upload(`files/${finalFileName}`, arrayBuffer);
             
           if (storageError) throw new Error(`خطای فضای ذخیره‌سازی: ${storageError.message}`);
 
-          const { data: publicUrlData } = supabase.storage.from('homework').getPublicUrl(`files/${fileName}`);
+          const { data: publicUrlData } = supabase.storage.from('homework').getPublicUrl(`files/${finalFileName}`);
           const publicUrl = publicUrlData.publicUrl;
 
           const nameParts = (state.name || 'ناشناس').trim().split(' ');
@@ -180,12 +189,12 @@ export async function POST(req: NextRequest) {
 
           if (dbError) throw new Error(`خطای دیتابیس: ${dbError.message}`);
 
-          await sendMessage(chatId, '✅ تکلیف شما با موفقیت ثبت شد. خسته نباشید!');
+          await sendMessage(chatId, '✅ تکلیف شما با موفقیت ثبت شد.\nخسته نباشید!');
           await deleteState(chatId);
 
         } catch (error: any) {
-          console.error(error);
-          await sendMessage(chatId, `❌ متأسفانه خطایی رخ داد:\n\n${error.message || 'خطای نامشخص در سرور'}`);
+          console.error("Upload/Insert Error:", error);
+          await sendMessage(chatId, '❌ متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید.');
         }
         return NextResponse.json({ ok: true });
       }
@@ -203,9 +212,12 @@ export async function POST(req: NextRequest) {
 
       if (data.startsWith('class_')) {
         const className = data.replace('class_', '');
+        // Convert digits to Persian for the message
+        const persianClassName = className.replace(/1/g, '۱').replace(/2/g, '۲').replace(/3/g, '۳').replace(/4/g, '۴').replace(/9/g, '۹');
+        
         await saveState(chatId, { ...state, step: 'FILE', class_name: className });
         
-        await sendMessage(chatId, `کلاس ${className} انتخاب شد.\n\n📥 لطفاً حالا **فایل تحقیق** خود را ارسال کنید (نیازی به Reply نیست).`);
+        await sendMessage(chatId, `کلاس ${persianClassName} انتخاب شد.\n\n📄 لطفاً فایل تکلیف خود را ارسال کنید.`);
         try {
           await answerCallbackQuery(callbackQuery.id);
         } catch(e) {}

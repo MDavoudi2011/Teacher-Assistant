@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Eye, Download, LogOut, FileText, LayoutDashboard } from "lucide-react";
+import { Eye, LogOut, FileText, LayoutDashboard } from "lucide-react";
 import { loginAction, fetchSubmissionsAction } from "./actions";
 
 import { Button } from "@/components/ui/button";
@@ -144,9 +144,9 @@ export default function Home() {
       </div>
 
       <Tabs defaultValue="9/1" className="w-full" onValueChange={setActiveClass} dir="rtl">
-        <TabsList className="flex flex-wrap sm:flex-nowrap w-full h-auto items-center mb-8 gap-2 p-1.5 rounded-2xl sm:rounded-full bg-white shadow-sm border">
+        <TabsList className="grid grid-cols-4 w-full h-auto mb-8 gap-1 p-1 rounded-full bg-white shadow-sm border overflow-hidden">
           {classes.map(cls => (
-            <TabsTrigger key={cls} value={cls} className="flex-1 text-sm sm:text-base h-10 rounded-xl sm:rounded-full transition-all duration-300">
+            <TabsTrigger key={cls} value={cls} className="text-xs sm:text-base h-10 rounded-full transition-all duration-300">
               کلاس {toPersianDigits(cls)}
             </TabsTrigger>
           ))}
@@ -159,9 +159,9 @@ export default function Home() {
                 <Table>
                   <TableHeader className="bg-secondary/30">
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-right font-bold text-foreground py-4 px-6">نام و نام خانوادگی</TableHead>
-                      <TableHead className="text-right font-bold text-foreground py-4">تاریخ ارسال</TableHead>
-                      <TableHead className="text-left font-bold text-foreground py-4 px-6">عملیات</TableHead>
+                      <TableHead className="text-right font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap">نام و نام خانوادگی</TableHead>
+                      <TableHead className="text-right font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap">تاریخ ارسال</TableHead>
+                      <TableHead className="text-center font-bold text-foreground py-3 px-3 sm:px-6 whitespace-nowrap">مشاهده</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -192,20 +192,15 @@ export default function Home() {
                     ) : (
                       submissions.map((sub) => (
                         <TableRow key={sub.id} className="transition-colors hover:bg-muted/30">
-                          <TableCell className="text-base font-medium py-4 px-6">{sub.first_name} {sub.last_name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground py-4 whitespace-nowrap">
+                          <TableCell className="text-sm sm:text-base font-medium py-3 px-3 sm:px-6 whitespace-nowrap">{sub.first_name} {sub.last_name}</TableCell>
+                          <TableCell className="text-xs sm:text-sm text-muted-foreground py-3 px-3 sm:px-6 whitespace-nowrap">
                             {formatDate(sub.created_at)}
                           </TableCell>
-                          <TableCell className="text-left py-4 px-6">
-                            <div className="flex items-center justify-end gap-2">
+                          <TableCell className="text-center py-3 px-3 sm:px-6">
+                            <div className="flex items-center justify-center">
                               <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 hover:text-primary transition-colors h-9 w-9" asChild>
-                                <a href={sub.file_url} target="_blank" rel="noreferrer" title="مشاهده">
+                                <a href={sub.file_url} target="_blank" rel="noopener noreferrer" title="مشاهده">
                                   <Eye className="h-5 w-5" />
-                                </a>
-                              </Button>
-                              <Button variant="default" size="icon" className="rounded-full shadow-sm hover:shadow-md transition-all h-9 w-9" asChild>
-                                <a href={sub.file_url} download title="دانلود">
-                                  <Download className="h-4 w-4" />
                                 </a>
                               </Button>
                             </div>
