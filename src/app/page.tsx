@@ -185,7 +185,7 @@ export default function Home() {
                             <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center">
                               <FileText className="h-6 w-6 text-primary/60" />
                             </div>
-                            <span className="text-base">تکلیفی ارسال نشده است</span>
+                            <span className="text-base">تکلیفی ارسال نشده است.</span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -202,7 +202,7 @@ export default function Home() {
                                 <a href={sub.file_url} target="_blank" rel="noopener noreferrer" title="مشاهده" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-blue-100 hover:text-blue-600 transition-colors border-l">
                                   <Eye className="h-4 w-4" />
                                 </a>
-                                <a href={sub.file_url} download title="دانلود" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-emerald-100 hover:text-emerald-600 transition-colors">
+                                <a href={sub.file_url} download={`${sub.first_name}_${sub.last_name}`} title="دانلود" className="flex-1 flex items-center justify-center h-9 px-3 hover:bg-emerald-100 hover:text-emerald-600 transition-colors">
                                   <Download className="h-4 w-4" />
                                 </a>
                               </div>
